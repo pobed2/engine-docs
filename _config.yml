@@ -8,8 +8,9 @@ sidebar_categories:
     - apollo-tracing
     - data-privacy
   Setup:
-    - setup-node
+    - setup-apollo-server
     - setup-standalone
+    - setup-node
     - setup-heroku
     - setup-lambda
     - setup-virtual
@@ -19,13 +20,14 @@ sidebar_categories:
     - performance
     - schema-analytics
     - error-tracking
+    - alerts
+    - reports
+    - datadog
+  Proxy Features:
     - caching
     - auto-persisted-queries
     - cdn
     - query-batching
-    - alerts
-    - reports
-    - datadog
   Guides:
     - troubleshooting
     - 1.0-migration

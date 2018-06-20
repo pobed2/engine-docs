@@ -1,39 +1,45 @@
 ---
-title: Set up Engine with Node
-sidebar_title: Node with Apollo Server
-description: Get Engine running with your Node.js GraphQL server.
+title: Set up Engine Proxy with Node
+sidebar_title: Node with Engine Proxy
+description: Get Engine Proxy running with your Node.js GraphQL server.
 ---
 
-With just a few minutes of setup, you can supercharge your Node.js GraphQL server with Apollo Engine to get performance tracing, caching, error tracking, and more. Let's get started!
-
-Our main supported server library is [Apollo Server](https://www.apollographql.com/docs/apollo-server/). Engine relies on GraphQL response extensions like [Apollo Tracing](./apollo-tracing.html) and [Apollo Cache Control](https://github.com/apollographql/apollo-cache-control) to work, which come integrated with Apollo Server. Apollo Server is easy to use with every popular Node.js web framework such as Express, Hapi, and Koa.
+For new development, we suggest [enabling Engine in Apollo Server 2](./setup-apollo-server.html), which no longer requires Engine Proxy. If Engine Proxy is already a part of your infrastructure and you depend on the full response caching, this guide explains how to enable the Proxy with Apollo Server 2.
 
 We encourage you to [contact us](mailto:support@apollodata.com) with feedback or help if you encounter problems running Engine in your app. You can also join us in the public [#engine Slack Channel](https://www.apollographql.com/slack).
 
-<h2 id="setup-guide">Setup guide for Express</h2>
+<h2 id="setup-guide">Setup guide for Apollo Server</h2>
 
 To get Engine running with Apollo Server and Express, just follow these three quick steps. This guide assumes you're running your GraphQL server with the `express` web server package for Node. If you're using a different framework, all of the steps are the same except step 3, for which you should check out the [other servers](#not-express) section of this page.
 
 <h3 id="apollo-server-config" title="Apollo Server config">1. Enable Tracing and Cache Control in Apollo Server</h3>
 
-Just add `tracing: true` and `cacheControl: true` to the options passed to the Apollo Server middleware function.
+Add `tracing: true` and `cacheControl: true` to the options passed to the Apollo Server middleware function. To disable the new reporting agent, set `engine` to false.
 
 For example:
 
-```javascript
-const { graphqlExpress } = require('apollo-server-express');
+```js
+const { ApolloServer, gql } = require('apollo-server-express');
+const { typeDefs, resolvers } = require('./schema');
+const express = require('express');
 
-app.use('/graphql', bodyParser.json(), graphqlExpress({
-  schema,
-  context: { ... },
+const app = express();
 
-  // Add the two options below
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
   tracing: true,
-  cacheControl: true
-}));
-```
+  cacheControl: true,
+  // We set `engine` to false, so that the new agent is not used.
+  engine: false,
+});
 
-If you are using `express-graphql`, we recommend switching to Apollo Server. Both `express-graphql` and Apollo Server use the same [`graphql-js`](https://github.com/graphql/graphql-js) reference implementation, so your schema will work in exactly the same way. Switching should only require changing a few lines of code.
+server.applyMiddleware({ app });
+
+app.listen({ port: 4000 }, () =>
+  console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+)
+```
 
 #### Check if Step 1 worked!
 
@@ -69,12 +75,24 @@ Then, import the `ApolloEngine` constructor at the top, create a new Engine inst
 ```js
 // Import ApolloEngine
 const { ApolloEngine } = require('apollo-engine');
+const { ApolloServer } = require('apollo-server-express');
+const express = require('express');
+
+// Initialize Apollo Server
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  tracing: true,
+  cacheControl: true,
+  // We set `engine` to false, so that the new agent is not used.
+  engine: false,
+});
 
 // Initialize your Express app like before
 const app = express();
 
 // All of your GraphQL middleware goes here
-app.use('/graphql', ...);
+server.applyMiddlware({ app });
 
 // Initialize engine with your API key. Alternatively,
 // set the ENGINE_API_KEY environment variable when you
@@ -85,14 +103,12 @@ const engine = new ApolloEngine({
 
 // Call engine.listen instead of app.listen(port)
 engine.listen({
-  port: 3000,
+  port: 4000,
   expressApp: app,
 });
 ```
 
 And you're done!
-
-The code above is specifically for `express`. For other servers, check out the [other servers](#not-express) section of this page for the appropriate snippet.
 
 #### Check if Step 3 worked
 
@@ -115,7 +131,7 @@ You can use the `graphqlPaths` option if your GraphQL API responds to requests o
 ```js
 // For engine.listen
 engine.listen({
-  port: 3000,
+  port: 4000,
   expressApp: app,
 
   // GraphQL endpoint suffix - '/graphql' by default
@@ -143,141 +159,6 @@ Now that you have integrated Engine into your GraphQL server, you are ready to d
 
 - [Heroku](./deploy-heroku.html)
 - [Now](./deploy-now.html)
-
-<h2 id="not-express" title="Other Node servers">Node servers other than Express</h2>
-
-If you're using one of the Node.js server packages that Apollo Server supports that aren't express, you've come to the right place! Find your server library below for an example.
-
-All of these are just one line to set up, and the integration is built right into `ApolloEngine` like so:
-
-#### Connect
-
-Follow the same instructions as for Express, but specify your app with the `connectApp` option instead.
-
-```js
-const app = connect();
-
-// Replace your app.listen with engine.listen
-engine.listen({
-  port: 3000,
-  connectApp: app,
-});
-```
-
-#### Koa
-
-Follow the same instructions as for Express, but specify your app with the `koaApp` option instead.
-
-```js
-const app = new Koa();
-
-// Replace your app.listen with engine.listen
-engine.listen({
-  port: 3000,
-  koaApp: app,
-});
-```
-
-#### Restify
-
-Follow the same instructions as for Express, but specify your app (which Restify calls a "server") with the `restifyServer` option instead.
-
-```js
-const server = restify.createServer(...);
-
-// Replace your server.listen with engine.listen
-engine.listen({
-  port: 3000,
-  restifyServer: server,
-});
-```
-
-#### Micro
-
-The app objects in the Micro framework are just instances of Node's built-in `http.Server`.
-
-Follow the same instructions as for Express, but specify your server with the `httpServer` option instead.
-
-```js
-const server = micro(microRouter.post('/graphql', handler));
-
-// Replace your server.listen with engine.listen
-engine.listen({
-  port: 3000,
-  httpServer: server,
-});
-```
-
-
-#### Hapi
-
-This is a little more complex but also built right in! Hapi doesn't have a `listen` method, so you have to provide a special object to the `hapi.Server` constructor, and turn off auto-listening mode. Note that this assumes you are running the `engine.hapiListener` method inside an async function, as setting up Hapi servers generally requires calling `await` on a few async methods.
-
-```js
-const engine = new ApolloEngine({apiKey: 'API_KEY'});
-const hapiListener = await engine.hapiListener({port: 3000});
-const hapiServer = new hapi.Server({
-  autoListen: false,
-  listener: hapiListener,
-});
-// ... set up your server ...
-await server.start();
-```
-
-The instructions above are for Hapi v17. The Hapi v16 API is slightly different (and also requires you to use a version of `apollo-server-hapi` older than 1.3.0). Engine is currently tested with Hapi v17, but we believe it also works with Hapi v16. We have a [separate example](https://github.com/jbaxleyiii/hapi-16-with-engine) showing how to use `apollo-server-hapi` and `ApolloEngine` with Hapi v16.
-
-#### Meteor
-
-Just call `meteorListen` on the built-in `WebApp` server at the top level of your app's server code:
-
-```js
-engine.meteorListen(WebApp);
-```
-
-If you want to pass options to the Engine listener, you can pass them as the second parameter:
-
-```js
-engine.meteorListen(WebApp, { graphqlPaths: [ "/other-graphql" ]});
-```
-
-#### Nest
-
-Nest's listen function does two things, unlike Express/Connect/etc's which does one thing, so in order to decouple them you have to do this:
-
-```js
-// Replace your app.listen with engine.listen after awaiting app.init()
-await app.init();
-await engine.listen({
-  port: PORT,
-  httpServer: app.getHttpServer(),
-});
-```
-
-#### Other Frameworks (and Node's built-in `http.Server`)
-
-These instructions work for any framework not explicitly supported which gives you access to an `http.Server`, and for `http.Server` itself.
-
-Follow the same instructions as for Express, but specify your server with the `httpServer` option instead.
-
-```js
-const http = require('http');
-
-const server = http.createServer((request, response) => {
-  // code goes here!
-});
-
-// Replace your server.listen with engine.listen
-engine.listen({
-  port: 3000,
-  httpServer: server,
-});
-```
-
-<h2 id="lambda">AWS Lambda</h2>
-
-Since Engine relies on tracking some state across requests to do performance tracing and caching, it needs to be deployed in a different way when you're using Lambda that involves running a separate container. Thankfully, you can do this easily in just a few clicks!
-
-Head on over to the [AWS Lambda setup guide](./setup-lambda.html) to learn how to do it.
 
 <h2 id="https">Serving HTTPS and HTTP/2</h2>
 
@@ -420,7 +301,7 @@ Just like the `listen` method on `http.Server` and most web framework app object
 const app = express();
 const engine = new ApolloEngine(config);
 
-const port = 3000;
+const port = 4000;
 
 engine.listen({
   port,
